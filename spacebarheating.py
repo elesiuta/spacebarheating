@@ -34,7 +34,7 @@ import time
 import keyboard
 
 PIDFILE = os.path.join(os.path.expanduser("~"), ".config", "spacebarheating.pid")
-VERSION = "0.0.2"
+VERSION = "0.0.3"
 
 
 def heater():
@@ -87,7 +87,7 @@ def start() -> int:
 
 
 def stop() -> int:
-    """terminate running instance"""
+    """terminate running instance and make sure pidfile was removed"""
     try:
         with open(PIDFILE, "r") as f:
             pid = int(f.read().strip())
@@ -95,22 +95,24 @@ def stop() -> int:
         time.sleep(0.1)
         try:
             os.kill(pid, signal.SIGTERM)
+            time.sleep(0.1)
             os.kill(pid, signal.SIGKILL)
         except OSError:
-            os.remove(PIDFILE)
+            if os.path.exists(PIDFILE):
+                os.remove(PIDFILE)
     except IOError:
-        print(f"pidfile {PIDFILE} does not exist. spacebarheating not running?", file=sys.stderr)
+        print(f"pidfile {PIDFILE} does not exist. \nspacebarheating is not currently running?", file=sys.stderr)
     return 0
 
 
 def cli() -> int:
     """command line interface and initialization"""
-    # help message
+    # help/usage message for any invalid flags
     if len(sys.argv) <= 1 or sys.argv[1] not in ["start", "stop", "version"]:
         print("usage: spacebarheating start|stop|version \n\n"
               "This software comes with ABSOLUTELY NO WARRANTY. This is free software, and \n"
               "you are welcome to redistribute it. See the MIT License for details.")
-        return 0
+        return 2
     # test keyboard hooks (needs root on linux)
     try:
         keyboard.hook_key("space", lambda x: None)
@@ -126,18 +128,18 @@ def cli() -> int:
             os.execvp("sudo", args)
         else:
             print("Error: could not register keyboard hooks")
-            sys.exit(1)
+            return 1
     # command line interface
     if sys.argv[1] == "start":
         if os.path.exists(PIDFILE):
-            print(f"pidfile {PIDFILE} already exists. spacebarheating already running?", file=sys.stderr)
+            print(f"pidfile {PIDFILE} already exists. \nspacebarheating is currently running?", file=sys.stderr)
             return 1
     elif sys.argv[1] == "stop":
         return stop()
-    elif sys.argv[1] == "version":
+    else:
         print(VERSION)
         return 0
-    # start process as a pseudo daemon
+    # detach from terminal and start
     if os.name == "posix":
         if os.isatty(0):
             if importlib.util.find_spec("spacebarheating"):
@@ -151,7 +153,6 @@ def cli() -> int:
             return 0
     else:
         raise Exception("Unsupported Platform")
-    # start
     return start()
 
 
@@ -187,14 +188,5 @@ def win32svc():
     win32serviceutil.HandleCommandLine(SpaceBarHeatingSvc)
 
 
-def main():
-    """start as win32service or start cli"""
-    if os.name == "nt" and "win32svc" in sys.argv:
-        sys.argv.remove("win32svc")
-        sys.exit(win32svc())
-    else:
-        sys.exit(cli())
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cli())
