@@ -1,7 +1,7 @@
 # Spacebar Heating
-A stupid script inspired by https://xkcd.com/1172/
-![There are probably children out there holding down spacebar to stay warm in the winter! YOUR UPDATE MURDERS CHILDREN.](https://imgs.xkcd.com/comics/workflow.png)  
-I never thought I'd have an actual use case for this, but here I am, fixes the lcd on my laptop which displays vertical lines when the temperature is cold
+A stupid script inspired by https://xkcd.com/1172/  
+![https://xkcd.com/1172/](https://imgs.xkcd.com/comics/workflow.png "There are probably children out there holding down spacebar to stay warm in the winter! YOUR UPDATE MURDERS CHILDREN.")  
+I never thought I'd have an actual use case for this, but here I am, fixes the lcd on my laptop which displays vertical lines when the temperature is cold  
 - clone the repo and install with  
 `python setup.py install --user`
 - then start with  

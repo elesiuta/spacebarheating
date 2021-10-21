@@ -34,7 +34,7 @@ import time
 import keyboard
 
 PIDFILE = os.path.join(os.path.expanduser("~"), ".config", "spacebarheating.pid")
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 
 def heater():
@@ -70,26 +70,19 @@ def heater_hook(key_event: keyboard.KeyboardEvent) -> None:
     return
 
 
-def start(win32svc_thread: threading.Event = None) -> int:
+def start() -> int:
     """main function (registers hooks and waits)"""
-    if win32svc_thread is None:
-        if os.path.exists(PIDFILE):
-            print(f"pidfile {PIDFILE} already exists. spacebarheating already running?", file=sys.stderr)
-            return 1
-        os.makedirs(os.path.dirname(PIDFILE), exist_ok=True)
-        with open(PIDFILE, "w") as f:
-            f.write(str(os.getpid()) + "\n")
-        forever = threading.Event()
-        signal.signal(signal.SIGINT, lambda *args: forever.set())
-        signal.signal(signal.SIGTERM, lambda *args: forever.set())
-    else:
-        forever = win32svc_thread
+    assert not os.path.exists(PIDFILE)
+    os.makedirs(os.path.dirname(PIDFILE), exist_ok=True)
+    with open(PIDFILE, "w") as f:
+        f.write(str(os.getpid()) + "\n")
+    forever = threading.Event()
+    signal.signal(signal.SIGINT, lambda *args: forever.set())
+    signal.signal(signal.SIGTERM, lambda *args: forever.set())
     keyboard.hook_key("space", heater_hook)
     forever.wait()
-    keyboard.unhook_all()
-    keyboard.unhook_all_hotkeys()
-    if win32svc_thread is None:
-        os.remove(PIDFILE)
+    keyboard.unhook_key("space")
+    os.remove(PIDFILE)
     return 0
 
 
@@ -141,13 +134,6 @@ def cli() -> int:
             return 1
     elif sys.argv[1] == "stop":
         return stop()
-    # elif sys.argv[1] == "regsvc":
-    #     if os.name == "nt":
-    #         print("creating service 'spacebarheating'")
-    #         os.system("sc create SpaceBarHeating binPath= \"%s -m spacebarheating.win32svc\"" % (sys.executable.replace("python.exe", "pythonw.exe")))
-    #     else:
-    #         print("this flag only supports windows")
-    #     return 0
     elif sys.argv[1] == "version":
         print(VERSION)
         return 0
@@ -170,31 +156,34 @@ def cli() -> int:
 
 
 def win32svc():
-    """start as a win32service"""
+    """start as a win32service (currently broken)"""
     import socket
     import servicemanager
     import win32event
     import win32service
     import win32serviceutil
-    import win32timezone
     class SpaceBarHeatingSvc(win32serviceutil.ServiceFramework):
         _svc_name_ = "SpaceBarHeating"
         _svc_display_name_ = "Spacebar Heating"
         _svc_description_ = "Inspired by https://xkcd.com/1172/"
         def __init__(self, args):
-            self.win32svc_thread = threading.Event()
+            self.forever = threading.Event()
             win32serviceutil.ServiceFramework.__init__(self, args)
             self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
             socket.setdefaulttimeout(60)
         def SvcStop(self):
             self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
-            self.win32svc_thread.set()
+            self.forever.set()
             win32event.SetEvent(self.hWaitStop)
         def SvcDoRun(self):
             servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
                                   servicemanager.PYS_SERVICE_STARTED,
                                   (self._svc_name_, ""))
-            start(self.win32svc_thread)
+            self.start()
+        def start(self):
+            keyboard.hook_key("space", heater_hook)
+            self.forever.wait()
+            keyboard.unhook_key("space")
     win32serviceutil.HandleCommandLine(SpaceBarHeatingSvc)
 
 
@@ -209,4 +198,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
