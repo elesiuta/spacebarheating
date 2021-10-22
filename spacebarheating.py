@@ -34,13 +34,13 @@ import time
 import keyboard
 
 PIDFILE = os.path.join(os.path.expanduser("~"), ".config", "spacebarheating.pid")
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 
 
 def heater():
     """a very basic stress test"""
     signal.signal(signal.SIGTERM, lambda *args: sys.exit(0))
-    while keyboard.is_pressed("space"):
+    while os.name == "nt" or keyboard.is_pressed("space"):
         for i in range(1, 1000):
             _ = 1/i**0.5
     sys.exit(0)
@@ -118,7 +118,7 @@ def cli() -> int:
         keyboard.hook_key("space", lambda x: None)
         keyboard.unhook_key("space")
     except Exception as e:
-        print(type(e).__name__ + str(e.args))
+        print(type(e).__name__ + str(e.args), file=sys.stderr)
         if os.name == "posix" and os.getuid() != 0:
             print("Attempting to re-run spacebarheating as root, requesting root privileges", file=sys.stderr)
             if importlib.util.find_spec("spacebarheating"):
@@ -127,7 +127,7 @@ def cli() -> int:
                 args = ["sudo", "-E", sys.executable] + sys.argv
             os.execvp("sudo", args)
         else:
-            print("Error: could not register keyboard hooks")
+            print("Error: could not register keyboard hooks", file=sys.stderr)
             return 1
     # command line interface
     if sys.argv[1] == "start":
