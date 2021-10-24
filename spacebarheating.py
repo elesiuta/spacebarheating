@@ -34,7 +34,7 @@ import time
 import keyboard
 
 PIDFILE = os.path.join(os.path.expanduser("~"), ".config", "spacebarheating.pid")
-VERSION = "0.0.4"
+VERSION = "0.0.5"
 
 
 def heater():
@@ -44,6 +44,14 @@ def heater():
         for i in range(1, 1000):
             _ = 1/i**0.5
     sys.exit(0)
+
+
+def timed_heater(_):
+    """a simpler heater, runs for 10 seconds then exits, no 'spacebar' required"""
+    start_time = time.time()
+    while time.time() < start_time + 10:
+        for i in range(1, 1000):
+            _ = 1/i**0.5
 
 
 def heater_hook(key_event: keyboard.KeyboardEvent) -> None:
@@ -93,26 +101,36 @@ def stop() -> int:
             pid = int(f.read().strip())
         os.kill(pid, signal.SIGINT)
         time.sleep(0.1)
-        try:
-            os.kill(pid, signal.SIGTERM)
-            time.sleep(0.1)
-            os.kill(pid, signal.SIGKILL)
-        except OSError:
-            if os.path.exists(PIDFILE):
-                os.remove(PIDFILE)
-    except IOError:
+        os.kill(pid, signal.SIGTERM)
+        time.sleep(0.1)
+        os.kill(pid, signal.SIGKILL)
+        assert not os.path.exists(PIDFILE)
+        print("stopped spacebarheating")
+    except FileNotFoundError:
         print(f"pidfile {PIDFILE} does not exist. \nspacebarheating is not currently running?", file=sys.stderr)
+        return 1
+    except ProcessLookupError:
+        print(f"pidfile {PIDFILE} still exists but spacebarheating does not appear to be running, removing pidfile")
+        os.remove(PIDFILE)
+    except AssertionError:
+        print(f"Error: pidfile {PIDFILE} still exists after attempting to stop process, process hanging or pid recycled?", file=sys.stderr)
+        return 1
     return 0
 
 
 def cli() -> int:
     """command line interface and initialization"""
     # help/usage message for any invalid flags
-    if len(sys.argv) <= 1 or sys.argv[1] not in ["start", "stop", "version"]:
-        print("usage: spacebarheating start|stop|version \n\n"
+    if len(sys.argv) <= 1 or sys.argv[1] not in ["start", "stop", "restart", "once", "version"]:
+        print("usage: spacebarheating start|stop|restart|once|version \n\n"
               "This software comes with ABSOLUTELY NO WARRANTY. This is free software, and \n"
               "you are welcome to redistribute it. See the MIT License for details.")
         return 2
+    # run once for 10 seconds and exit (before testing keyboard hooks so root not required either)
+    if sys.argv[1] == "once":
+        with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+            _ = pool.map(timed_heater, range(multiprocessing.cpu_count()))
+        return 0
     # test keyboard hooks (needs root on linux)
     try:
         keyboard.hook_key("space", lambda x: None)
@@ -120,7 +138,7 @@ def cli() -> int:
     except Exception as e:
         print(type(e).__name__ + str(e.args), file=sys.stderr)
         if os.name == "posix" and os.getuid() != 0:
-            print("Attempting to re-run spacebarheating as root, requesting root privileges", file=sys.stderr)
+            print("Attempting to re-run spacebarheating as root, requesting root privileges")
             if importlib.util.find_spec("spacebarheating"):
                 args = ["sudo", "-E", "python3", "-m", "spacebarheating", sys.argv[1]]
             else:
@@ -130,7 +148,9 @@ def cli() -> int:
             print("Error: could not register keyboard hooks", file=sys.stderr)
             return 1
     # command line interface
-    if sys.argv[1] == "start":
+    if sys.argv[1] == "restart":
+        stop()
+    if sys.argv[1] in ["start", "restart"]:
         if os.path.exists(PIDFILE):
             print(f"pidfile {PIDFILE} already exists. \nspacebarheating is currently running?", file=sys.stderr)
             return 1
@@ -140,6 +160,7 @@ def cli() -> int:
         print(VERSION)
         return 0
     # detach from terminal and start
+    print("starting spacebarheating")
     if os.name == "posix":
         if os.isatty(0):
             if importlib.util.find_spec("spacebarheating"):
