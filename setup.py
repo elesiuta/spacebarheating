@@ -13,12 +13,8 @@ setuptools.setup(
     url="https://github.com/elesiuta/spacebarheating",
     license="MIT",
     py_modules=["spacebarheating"],
-    entry_points={"console_scripts": [
-        "spacebarheating = spacebarheating:cli",
-        "spacebarheating.win32svc = spacebarheating:win32svc"
-    ]},
+    entry_points={"console_scripts": ["spacebarheating = spacebarheating:cli"]},
     install_requires=["keyboard"],
-    extras_require={"pywin32": ["pywin32"]},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

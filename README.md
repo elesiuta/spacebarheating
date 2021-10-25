@@ -11,9 +11,8 @@ I never thought I'd have an actual use case for this, but here I am, fixes the L
 - holding spacebar for 2.5 seconds will now max out your CPU usage until you release it
 - you can stop the background process with  
 `spacebarheating stop`
-- or you can just run it once for 10 seconds then exit, but where's the fun in that?  
+- or you can just run it once for 10 seconds then exit, no *spacebar* required  
 `spacebarheating once`
-  - just running this on startup was enough to fix my LCD issue, no *spacebar* required  
 - you can also run the python script directly without installing via  
 `python spacebarheating.py start|stop|restart|once|version`
   - depends on installing https://pypi.org/project/keyboard/  

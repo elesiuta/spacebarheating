@@ -34,7 +34,7 @@ import time
 import keyboard
 
 PIDFILE = os.path.join(os.path.expanduser("~"), ".config", "spacebarheating.pid")
-VERSION = "0.0.5"
+VERSION = "10.17.1"
 
 
 def heater():
@@ -175,38 +175,6 @@ def cli() -> int:
     else:
         raise Exception("Unsupported Platform")
     return start()
-
-
-def win32svc():
-    """start as a win32service (currently broken)"""
-    import socket
-    import servicemanager
-    import win32event
-    import win32service
-    import win32serviceutil
-    class SpaceBarHeatingSvc(win32serviceutil.ServiceFramework):
-        _svc_name_ = "SpaceBarHeating"
-        _svc_display_name_ = "Spacebar Heating"
-        _svc_description_ = "Inspired by https://xkcd.com/1172/"
-        def __init__(self, args):
-            self.forever = threading.Event()
-            win32serviceutil.ServiceFramework.__init__(self, args)
-            self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
-            socket.setdefaulttimeout(60)
-        def SvcStop(self):
-            self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
-            self.forever.set()
-            win32event.SetEvent(self.hWaitStop)
-        def SvcDoRun(self):
-            servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
-                                  servicemanager.PYS_SERVICE_STARTED,
-                                  (self._svc_name_, ""))
-            self.start()
-        def start(self):
-            keyboard.hook_key("space", heater_hook)
-            self.forever.wait()
-            keyboard.unhook_key("space")
-    win32serviceutil.HandleCommandLine(SpaceBarHeatingSvc)
 
 
 if __name__ == "__main__":
