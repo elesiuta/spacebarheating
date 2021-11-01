@@ -40,7 +40,7 @@ VERSION = "10.17.1"
 def heater():
     """a very basic stress test"""
     signal.signal(signal.SIGTERM, lambda *args: sys.exit(0))
-    while os.name == "nt" or keyboard.is_pressed("space"):
+    while multiprocessing.parent_process().is_alive() and (os.name == "nt" or keyboard.is_pressed("space")):
         for i in range(1, 1000):
             _ = 1/i**0.5
     sys.exit(0)
@@ -107,7 +107,7 @@ def stop() -> int:
         assert not os.path.exists(PIDFILE)
         print("stopped spacebarheating")
     except FileNotFoundError:
-        print(f"pidfile {PIDFILE} does not exist. \nspacebarheating is not currently running?", file=sys.stderr)
+        print(f"pidfile {PIDFILE} does not exist.\nspacebarheating is not currently running?", file=sys.stderr)
         return 1
     except ProcessLookupError:
         print(f"pidfile {PIDFILE} still exists but spacebarheating does not appear to be running, removing pidfile")
@@ -115,6 +115,12 @@ def stop() -> int:
     except AssertionError:
         print(f"Error: pidfile {PIDFILE} still exists after attempting to stop process, process hanging or pid recycled?", file=sys.stderr)
         return 1
+    except OSError:
+        if os.name == "nt" and os.path.exists(PIDFILE):
+            print("stopping spacebarheating...")
+            os.remove(PIDFILE)
+        else:
+            print("I AM ERROR.", file=sys.stderr)
     return 0
 
 
@@ -122,8 +128,8 @@ def cli() -> int:
     """command line interface and initialization"""
     # help/usage message for any invalid flags
     if len(sys.argv) <= 1 or sys.argv[1] not in ["start", "stop", "restart", "once", "version"]:
-        print("usage: spacebarheating start|stop|restart|once|version \n\n"
-              "This software comes with ABSOLUTELY NO WARRANTY. This is free software, and \n"
+        print("usage: spacebarheating start|stop|restart|once|version\n\n"
+              "This software comes with ABSOLUTELY NO WARRANTY. This is free software, and\n"
               "you are welcome to redistribute it. See the MIT License for details.")
         return 2
     # run once for 10 seconds and exit (before testing keyboard hooks so root not required either)
@@ -152,7 +158,7 @@ def cli() -> int:
         stop()
     if sys.argv[1] in ["start", "restart"]:
         if os.path.exists(PIDFILE):
-            print(f"pidfile {PIDFILE} already exists. \nspacebarheating is currently running?", file=sys.stderr)
+            print(f"pidfile {PIDFILE} already exists.\nspacebarheating is currently running?", file=sys.stderr)
             return 1
     elif sys.argv[1] == "stop":
         return stop()
